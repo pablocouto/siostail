@@ -1,0 +1,6 @@
+[package]
+name = "siostail"
+version = "0.1.0"
+authors = ["Pablo Couto <pablo@uncharted.space>"]
+
+[dependencies]
