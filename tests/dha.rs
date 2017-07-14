@@ -16,10 +16,9 @@ impl Helper {
 }
 
 #[test]
-#[ignore]                       // Too demanding on the server.
+#[ignore] // Possibly too demanding on the server.
 fn indicators() {
     let mut endpoint = Helper::endpoint();
     let res = endpoint.indicators();
-    // TODO: Test by deserializing into tailored type.
     assert!(res.is_ok());
 }

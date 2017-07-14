@@ -1,14 +1,16 @@
+#[macro_use]
+extern crate serde_derive;
+
 extern crate crest;
 extern crate futures;
 extern crate hyper;
+extern crate serde;
 extern crate serde_json;
 
 use futures::stream::Concat2;
 use futures::{Future, Stream};
 use hyper::header::{self, Encoding, qitem};
 use hyper::{Body, Response, StatusCode};
-use serde_json::Value;
-use std::ops::Deref;
 
 mod error;
 mod impls;
@@ -23,6 +25,21 @@ pub struct Endpoint {
     token: Token,
 }
 
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct Indicator {
+    name: String,
+    description: String,
+    id: u32,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+pub struct Indicators {
+    indicators: Vec<Indicator>,
+    meta: serde_json::Value,
+}
+
 // TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
 // TODO: Add request timeouts.
@@ -32,8 +49,7 @@ impl Endpoint {
         Ok(Endpoint { server, token })
     }
 
-    // TODO: Create type for deserializing.
-    pub fn indicators(&mut self) -> Result<Value> {
+    pub fn indicators(&mut self) -> Result<Indicators> {
         let route = "indicators";
         let work = {
             let mut req = self.server.get(route)?;
@@ -49,8 +65,9 @@ impl Endpoint {
                 Helper::get_concat_body(res)
             })
         };
-        let res = Helper::run_and_get_json_value(&mut self.server, work);
-        Ok(res)
+        let res = self.run(work)?;
+        let value: Indicators = serde_json::from_slice(&*res)?;
+        Ok(value)
     }
 
     pub fn run<T>(&mut self, work: T) -> Result<T::Item>
@@ -73,20 +90,5 @@ impl Helper {
 
     fn get_concat_body(res: Response) -> Concat2<Body> {
         res.body().concat2()
-    }
-
-    fn to_json_value(data: &[u8]) -> Value {
-        serde_json::from_slice(data).unwrap()
-    }
-
-    fn run_and_get_json_value<T>(endpoint: &mut crest::Endpoint, work: T) -> Value
-    where
-        T: Future,
-        T::Item: Deref<Target = [u8]>,
-        Error: From<T::Error>,
-        crest::Error: From<T::Error>,
-    {
-        let res = endpoint.run(work).unwrap();
-        Helper::to_json_value(&*res)
     }
 }
