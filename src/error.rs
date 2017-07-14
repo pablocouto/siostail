@@ -1,5 +1,6 @@
 use crest;
 use hyper;
+use serde_json;
 use std::convert::From;
 use std::error::Error as StdError;
 use std::fmt;
@@ -11,6 +12,7 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     Crest(crest::error::Error),
     Hyper(hyper::Error),
+    SerdeJson(serde_json::Error),
     Unknown,
 }
 
@@ -19,6 +21,7 @@ impl StdError for Error {
         match *self {
             Error::Crest(ref error) => error.description(),
             Error::Hyper(ref error) => error.description(),
+            Error::SerdeJson(ref error) => error.description(),
             Error::Unknown => "Unknown error",
         }
     }
@@ -39,5 +42,11 @@ impl From<crest::error::Error> for Error {
 impl From<hyper::Error> for Error {
     fn from(error: hyper::Error) -> Self {
         Error::Hyper(error)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Error::SerdeJson(error)
     }
 }
