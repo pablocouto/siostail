@@ -23,6 +23,7 @@ pub struct Endpoint {
     token: Token,
 }
 
+// TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
 // TODO: Add request timeouts.
 impl Endpoint {
