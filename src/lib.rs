@@ -85,6 +85,7 @@ impl Endpoint {
         req
     }
 
+    // TODO: Use builder pattern for the request?
     fn create_request(
         &self,
         route: &str,
