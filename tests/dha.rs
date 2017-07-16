@@ -1,6 +1,8 @@
 extern crate siostail;
 
+use siostail::error::Error;
 use siostail::{Endpoint, Token};
+use std::error::Error as StdError;
 
 // TODO: Obtain from environment, to ease use with Travis.
 // NB: Generated in browser; subject to expiration.
@@ -11,7 +13,8 @@ struct Helper {}
 impl Helper {
     fn endpoint() -> Endpoint {
         let token = Token(TOKEN.to_string());
-        Endpoint::new(token).unwrap()
+        let timeout = 5;
+        Endpoint::new(token, timeout).unwrap()
     }
 }
 
@@ -20,5 +23,15 @@ impl Helper {
 fn indicators() {
     let mut endpoint = Helper::endpoint();
     let res = endpoint.indicators();
-    assert!(res.is_ok());
+    match res.err() {
+        None => return (),
+        // Server timeouts are OK:
+        Some(Error::Timeout) => {
+            println!("{}", Error::Timeout.description());
+            return ();
+        }
+        Some(ref err) => {
+            panic!("{:?}", err);
+        }
+    }
 }

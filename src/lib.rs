@@ -6,13 +6,17 @@ extern crate futures;
 extern crate hyper;
 extern crate serde;
 extern crate serde_json;
+extern crate tokio_timer;
 
-use futures::stream::Concat2;
+use futures::future;
 use futures::{Future, Stream};
 use hyper::header::{self, Encoding, qitem};
-use hyper::{Body, Response, StatusCode};
+use hyper::{Response, StatusCode};
+use std::time::Duration;
+use tokio_timer::Timer;
 
-mod error;
+pub mod error;
+
 mod impls;
 
 use error::{Error, Result};
@@ -20,9 +24,15 @@ use error::{Error, Result};
 #[derive(Clone, Debug)]
 pub struct Token(pub String);
 
+struct EndpointConfig {
+    timeout: Duration,
+}
+
+// TODO: Use Cow?
 pub struct Endpoint {
     server: crest::Endpoint,
     token: Token,
+    config: EndpointConfig,
 }
 
 #[allow(dead_code)]
@@ -42,13 +52,18 @@ pub struct Indicators {
 
 // TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
-// TODO: Add request timeouts.
 impl Endpoint {
-    pub fn new(token: Token) -> Result<Self> {
+    pub fn new(token: Token, timeout: u64) -> Result<Self> {
         let server = crest::Endpoint::new("https://api.esios.ree.es/")?;
-        Ok(Endpoint { server, token })
+        let config = EndpointConfig { timeout: Duration::from_secs(timeout) };
+        Ok(Endpoint {
+            server,
+            token,
+            config,
+        })
     }
 
+    // TODO: Add stream timeout for the body.
     pub fn indicators(&mut self) -> Result<Indicators> {
         let route = "indicators";
         let work = {
@@ -60,24 +75,18 @@ impl Endpoint {
                 hs.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
                 hs.set(header::Authorization(self.token.clone()))
             }
-            req.into_future().and_then(|res| {
+            let req: future::FromErr<_, Error> = req.into_future().from_err();
+            let timer = Timer::default();
+            let req = timer.timeout(req, self.config.timeout.clone());
+            req.and_then(|res| {
                 Helper::status_ok(&res);
-                Helper::get_concat_body(res)
+                let body = res.body().concat2().from_err();
+                body
             })
         };
-        let res = self.run(work)?;
+        let res = self.server.run(work)?;
         let value: Indicators = serde_json::from_slice(&*res)?;
         Ok(value)
-    }
-
-    pub fn run<T>(&mut self, work: T) -> Result<T::Item>
-    where
-        T: Future,
-        Error: From<T::Error>,
-        crest::Error: From<T::Error>,
-    {
-        let resp = self.server.run(work)?;
-        Ok(resp)
     }
 }
 
@@ -86,9 +95,5 @@ struct Helper {}
 impl Helper {
     fn status_ok(res: &Response) {
         assert_eq!(res.status(), StatusCode::Ok);
-    }
-
-    fn get_concat_body(res: Response) -> Concat2<Body> {
-        res.body().concat2()
     }
 }
