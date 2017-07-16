@@ -2,6 +2,8 @@
 name = "siostail"
 version = "0.1.0"
 authors = ["Pablo Couto <pablo@uncharted.space>"]
+license = "LGPL-3.0"
+publish = false
 
 [dependencies]
 crest = { git = "file:///home/pablo/code/public/crest", branch = "next" }
