@@ -20,6 +20,7 @@ use std::convert::From;
 use std::error::Error as StdError;
 use std::fmt;
 use std::result;
+use time;
 use tokio_timer;
 
 pub type Result<T> = result::Result<T, Error>;
@@ -29,18 +30,21 @@ pub enum Error {
     Crest(crest::error::Error),
     Hyper(hyper::Error),
     SerdeJson(serde_json::Error),
+    Time(time::ParseError),
     TimeoutError(tokio_timer::TimerError),
 
     Timeout,
     Unknown,
 }
 
+// TODO: Consistency in names.
 impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Crest(ref error) => error.description(),
             Error::Hyper(ref error) => error.description(),
             Error::SerdeJson(ref error) => error.description(),
+            Error::Time(ref error) => error.description(),
             Error::TimeoutError(ref error) => error.description(),
 
             Error::Timeout => "Operation timed out",
@@ -70,6 +74,12 @@ impl From<hyper::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Error::SerdeJson(error)
+    }
+}
+
+impl From<time::ParseError> for Error {
+    fn from(error: time::ParseError) -> Self {
+        Error::Time(error)
     }
 }
 

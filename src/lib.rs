@@ -21,6 +21,7 @@ extern crate futures;
 extern crate hyper;
 extern crate serde;
 extern crate serde_json;
+extern crate time;
 extern crate tokio_timer;
 
 use futures::future;
