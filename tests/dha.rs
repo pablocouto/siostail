@@ -50,3 +50,20 @@ fn indicators() {
         }
     }
 }
+
+#[test]
+fn indicator() {
+    let mut endpoint = Helper::endpoint();
+    let res = endpoint.indicator("2017-07-12T00:00:00+02:00", "2017-07-12T23:50:00+02:00");
+    match res.err() {
+        None => return (),
+        // Server timeouts are OK:
+        Some(Error::Timeout) => {
+            println!("{}", Error::Timeout.description());
+            return ();
+        }
+        Some(ref err) => {
+            panic!("{:?}", err);
+        }
+    }
+}

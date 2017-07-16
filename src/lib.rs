@@ -66,6 +66,24 @@ pub struct Indicators {
     meta: serde_json::Value,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct HourData {
+    value: f32,
+    datetime: String,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Esios {
+    Indicator {
+        id: u16,
+        values_updated_at: String,
+        values: Vec<HourData>,
+    },
+}
+
 // TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
 impl Endpoint {
@@ -103,6 +121,39 @@ impl Endpoint {
         let res = self.server.run(work)?;
         let value: Indicators = serde_json::from_slice(&*res)?;
         Ok(value)
+    }
+
+    pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<Esios> {
+        let rfc3339 = "%FT%T%z";
+        let start_date = time::strptime(start_date, rfc3339)?;
+        let end_date = time::strptime(end_date, rfc3339)?;
+        let mut route = "indicators/1014".to_string();
+        route += &format!(
+            "?start_date={}&end_date={}",
+            start_date.rfc3339(),
+            end_date.rfc3339()
+        );
+        let work = {
+            let mut req = self.server.get(&route)?;
+            {
+                let hs = req.headers_mut();
+                hs.set(header::UserAgent::new("siostail/dev"));
+                hs.set(header::Accept::json());
+                hs.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
+                hs.set(header::Authorization(self.token.clone()))
+            }
+            let req: future::FromErr<_, Error> = req.into_future().from_err();
+            let timer = Timer::default();
+            let req = timer.timeout(req, self.config.timeout.clone());
+            req.and_then(|res| {
+                Helper::status_ok(&res);
+                let body = res.body().concat2().from_err();
+                body
+            })
+        };
+        let res = self.server.run(work)?;
+        let data = serde_json::from_slice(&*res)?;
+        Ok(data)
     }
 }
 
