@@ -20,10 +20,9 @@ use serde_json;
 use std::convert::From;
 use std::error::Error as StdError;
 use std::fmt;
-use std::result;
 use tokio_timer;
 
-pub type Result<T> = result::Result<T, Error>;
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -31,13 +30,12 @@ pub enum Error {
     Chrono(chrono::ParseError),
     Hyper(hyper::Error),
     SerdeJson(serde_json::Error),
-    TimeoutError(tokio_timer::TimerError),
+    TokioTimer(tokio_timer::TimerError),
 
     Timeout,
     Unknown,
 }
 
-// TODO: Consistency in names.
 impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
@@ -45,7 +43,7 @@ impl StdError for Error {
             Error::Chrono(ref error) => error.description(),
             Error::Hyper(ref error) => error.description(),
             Error::SerdeJson(ref error) => error.description(),
-            Error::TimeoutError(ref error) => error.description(),
+            Error::TokioTimer(ref error) => error.description(),
 
             Error::Timeout => "Operation timed out",
             Error::Unknown => "Unknown error",
@@ -86,7 +84,7 @@ impl From<serde_json::Error> for Error {
 impl<T> From<tokio_timer::TimeoutError<T>> for Error {
     fn from(error: tokio_timer::TimeoutError<T>) -> Self {
         match error {
-            tokio_timer::TimeoutError::Timer(_, error) => Error::TimeoutError(error),
+            tokio_timer::TimeoutError::Timer(_, error) => Error::TokioTimer(error),
             tokio_timer::TimeoutError::TimedOut(_) => Error::Timeout,
         }
     }
