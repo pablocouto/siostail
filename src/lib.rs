@@ -24,7 +24,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio_timer;
 
-use chrono::DateTime;
+use chrono::{Date, DateTime, TimeZone};
 use futures::future;
 use futures::{Future, Stream};
 use hyper::header::{self, Encoding, qitem};
@@ -157,10 +157,34 @@ impl Endpoint {
     }
 }
 
+pub fn day_range_rfc3339<T>(date: Date<T>) -> (String, String)
+where
+    T: TimeZone,
+    T::Offset: std::fmt::Display,
+{
+    let start_time = date.and_hms(0, 0, 0).to_rfc3339();
+    let end_time = date.and_hms(23, 0, 0).to_rfc3339();
+    (start_time, end_time)
+}
+
 struct Helper {}
 
 impl Helper {
     fn status_ok(res: &Response) {
         assert_eq!(res.status(), StatusCode::Ok);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn day_range_rfc3339() {
+        let fixed_offset = chrono::offset::FixedOffset::east(3600 * 2);
+        let date_local = fixed_offset.ymd(2014, 04, 01);
+        let (start_time, end_time) = super::day_range_rfc3339(date_local);
+        assert_eq!(&start_time, "2014-04-01T00:00:00+02:00");
+        assert_eq!(&end_time, "2014-04-01T23:00:00+02:00");
     }
 }
