@@ -16,7 +16,7 @@
 extern crate siostail;
 
 use siostail::error::Error;
-use siostail::{Endpoint, Token};
+use siostail::{Endpoint, Esios, Token};
 use std::error::Error as StdError;
 
 // TODO: Obtain from environment, to ease use with Travis.
@@ -55,6 +55,11 @@ fn indicators() {
 fn indicator() {
     let mut endpoint = Helper::endpoint();
     let res = endpoint.indicator("2017-07-12T00:00:00+02:00", "2017-07-12T23:50:00+02:00");
+    let res = res.map(|data| {
+        let Esios::Indicator { values, .. } = data;
+        // Externally known value.
+        assert_eq!(values[0].value, 68.52);
+    });
     match res.err() {
         None => return (),
         // Server timeouts are OK:

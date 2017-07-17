@@ -69,7 +69,7 @@ pub struct Indicators {
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct HourData {
-    value: f32,
+    pub value: f32,
     datetime: String,
 }
 
