@@ -13,10 +13,13 @@
 // License version 3 along with this program.  If not, see
 // <http://www.gnu.org/licenses/>.
 
+extern crate chrono;
 extern crate siostail;
 
+use chrono::TimeZone;
+use chrono::offset::Local;
 use siostail::error::Error;
-use siostail::{Endpoint, Esios, Token};
+use siostail::{Endpoint, Esios, Token, day_range_rfc3339};
 use std::error::Error as StdError;
 
 // TODO: Obtain from environment, to ease use with Travis.
@@ -54,11 +57,12 @@ fn indicators() {
 #[test]
 fn indicator() {
     let mut endpoint = Helper::endpoint();
-    let res = endpoint.indicator("2017-07-12T00:00:00+02:00", "2017-07-12T23:50:00+02:00");
+    let (start_time, end_time) = day_range_rfc3339(Local.ymd(2014, 04, 01));
+    let res = endpoint.indicator(&start_time, &end_time);
     let res = res.map(|data| {
         let Esios::Indicator { values, .. } = data;
-        // Externally known value.
-        assert_eq!(values[0].value, 68.52);
+        // Externally known value:
+        assert_eq!(values[0].value, 40.55);
     });
     match res.err() {
         None => return (),

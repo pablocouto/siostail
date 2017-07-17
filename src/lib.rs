@@ -24,7 +24,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio_timer;
 
-use chrono::{Date, DateTime, TimeZone};
+use chrono::{Date, TimeZone};
 use futures::future;
 use futures::{Future, Stream};
 use hyper::header::{self, Encoding, qitem};
@@ -125,14 +125,8 @@ impl Endpoint {
     }
 
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<Esios> {
-        let start_date = DateTime::parse_from_rfc3339(start_date)?;
-        let end_date = DateTime::parse_from_rfc3339(end_date)?;
         let mut route = "indicators/1014".to_string();
-        route += &format!(
-            "?start_date={}&end_date={}",
-            &start_date.to_rfc3339(),
-            &end_date.to_rfc3339()
-        );
+        route += &format!("?start_date={}&end_date={}", start_date, end_date);
         let work = {
             let mut req = self.server.get(&route)?;
             {
