@@ -20,7 +20,8 @@ use chrono::TimeZone;
 use chrono::offset::Local;
 use siostail::day_range_rfc3339;
 use siostail::error::{Error, Result};
-use siostail::{Endpoint, Esios, Token};
+use siostail::esios;
+use siostail::{Endpoint, Token};
 use std::error::Error as StdError;
 
 // TODO: Obtain from environment, to ease use with Travis.
@@ -65,7 +66,7 @@ fn indicator() {
     let (start_time, end_time) = day_range_rfc3339(Local.ymd(2014, 04, 01));
     let res = esios.indicator(&start_time, &end_time);
     let res = res.map(|data| {
-        let Esios::Indicator { values, .. } = data;
+        let esios::IndicatorInner { values, .. } = data.indicator;
         // Externally known value:
         assert_eq!(values[0].value, 40.55);
     });

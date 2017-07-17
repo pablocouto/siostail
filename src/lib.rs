@@ -33,6 +33,7 @@ use std::time::Duration;
 use tokio_timer::Timer;
 
 pub mod error;
+pub mod esios;
 
 mod impls;
 
@@ -52,39 +53,6 @@ pub struct Endpoint {
     config: EndpointConfig,
 }
 
-#[allow(dead_code)]
-#[derive(Deserialize)]
-struct Indicator {
-    name: String,
-    description: String,
-    id: u32,
-}
-
-#[allow(dead_code)]
-#[derive(Deserialize)]
-pub struct Indicators {
-    indicators: Vec<Indicator>,
-    meta: serde_json::Value,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-pub struct HourData {
-    pub value: f32,
-    datetime: String,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Esios {
-    Indicator {
-        id: u16,
-        values_updated_at: String,
-        values: Vec<HourData>,
-    },
-}
-
 // TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
 impl Endpoint {
@@ -99,7 +67,7 @@ impl Endpoint {
     }
 
     // TODO: Add stream timeout for the body.
-    pub fn indicators(&mut self) -> Result<Indicators> {
+    pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
         let work = {
             let mut req = self.server.get(route)?;
@@ -120,11 +88,11 @@ impl Endpoint {
             })
         };
         let res = self.server.run(work)?;
-        let value: Indicators = serde_json::from_slice(&*res)?;
-        Ok(value)
+        let data = serde_json::from_slice(&*res)?;
+        Ok(data)
     }
 
-    pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<Esios> {
+    pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
         let work = {
