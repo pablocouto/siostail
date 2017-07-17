@@ -13,6 +13,7 @@
 // License version 3 along with this program.  If not, see
 // <http://www.gnu.org/licenses/>.
 
+use chrono;
 use crest;
 use hyper;
 use serde_json;
@@ -20,7 +21,6 @@ use std::convert::From;
 use std::error::Error as StdError;
 use std::fmt;
 use std::result;
-use time;
 use tokio_timer;
 
 pub type Result<T> = result::Result<T, Error>;
@@ -28,9 +28,9 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     Crest(crest::error::Error),
+    Chrono(chrono::ParseError),
     Hyper(hyper::Error),
     SerdeJson(serde_json::Error),
-    Time(time::ParseError),
     TimeoutError(tokio_timer::TimerError),
 
     Timeout,
@@ -42,9 +42,9 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Crest(ref error) => error.description(),
+            Error::Chrono(ref error) => error.description(),
             Error::Hyper(ref error) => error.description(),
             Error::SerdeJson(ref error) => error.description(),
-            Error::Time(ref error) => error.description(),
             Error::TimeoutError(ref error) => error.description(),
 
             Error::Timeout => "Operation timed out",
@@ -65,6 +65,12 @@ impl From<crest::error::Error> for Error {
     }
 }
 
+impl From<chrono::ParseError> for Error {
+    fn from(error: chrono::ParseError) -> Self {
+        Error::Chrono(error)
+    }
+}
+
 impl From<hyper::Error> for Error {
     fn from(error: hyper::Error) -> Self {
         Error::Hyper(error)
@@ -74,12 +80,6 @@ impl From<hyper::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
         Error::SerdeJson(error)
-    }
-}
-
-impl From<time::ParseError> for Error {
-    fn from(error: time::ParseError) -> Self {
-        Error::Time(error)
     }
 }
 

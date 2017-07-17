@@ -6,11 +6,11 @@ license = "LGPL-3.0"
 publish = false
 
 [dependencies]
+chrono = "0.4"
 crest = { git = "file:///home/pablo/code/public/crest", branch = "next" }
 futures = "0.1"
 hyper = "0.11"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-time = "0.1"
 tokio-timer = "0.1"
