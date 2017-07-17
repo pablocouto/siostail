@@ -25,12 +25,13 @@ extern crate serde_json;
 extern crate tokio_timer;
 
 use chrono::{Date, TimeZone};
-use futures::future;
 use futures::{Future, Stream};
-use hyper::header::{self, Encoding, qitem};
-use hyper::{Response, StatusCode};
+use futures::{future, stream};
+use hyper::header::qitem;
+use hyper::header::{self, Encoding};
+use hyper::{Headers, Response, StatusCode};
 use std::time::Duration;
-use tokio_timer::Timer;
+use tokio_timer::{Timeout, Timer};
 
 pub mod error;
 pub mod esios;
@@ -66,27 +67,43 @@ impl Endpoint {
         })
     }
 
+    fn set_basic_headers(&self, headers: &mut Headers) {
+        headers.set(header::UserAgent::new("siostail/dev"));
+        headers.set(header::Accept::json());
+        headers.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
+        headers.set(header::Authorization(self.token.clone()))
+    }
+
+    fn set_timeout<T>(&self, req: T) -> Timeout<future::FromErr<T, Error>>
+    where
+        T: Future,
+        Error: From<T::Error>,
+    {
+        let timer = Timer::default();
+        let req: future::FromErr<_, Error> = req.from_err();
+        let req = timer.timeout(req, self.config.timeout.clone());
+        req
+    }
+
+    fn create_request(
+        &self,
+        route: &str,
+    ) -> Result<Timeout<future::FromErr<hyper::client::FutureResponse, Error>>> {
+        let mut req = self.server.get(route)?;
+        self.set_basic_headers(req.headers_mut());
+        let req = self.set_timeout(req.into_future());
+        Ok(req)
+    }
+
     // TODO: Add stream timeout for the body.
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
-        let work = {
-            let mut req = self.server.get(route)?;
-            {
-                let hs = req.headers_mut();
-                hs.set(header::UserAgent::new("siostail/dev"));
-                hs.set(header::Accept::json());
-                hs.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
-                hs.set(header::Authorization(self.token.clone()))
-            }
-            let req: future::FromErr<_, Error> = req.into_future().from_err();
-            let timer = Timer::default();
-            let req = timer.timeout(req, self.config.timeout.clone());
-            req.and_then(|res| {
-                Helper::status_ok(&res);
-                let body = res.body().concat2().from_err();
-                body
-            })
-        };
+        let req = self.create_request(route)?;
+        let work = req.and_then(|res| {
+            assert_status(&res, StatusCode::Ok);
+            let body = concat_body(res).from_err();
+            body
+        });
         let res = self.server.run(work)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
@@ -95,24 +112,12 @@ impl Endpoint {
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
-        let work = {
-            let mut req = self.server.get(&route)?;
-            {
-                let hs = req.headers_mut();
-                hs.set(header::UserAgent::new("siostail/dev"));
-                hs.set(header::Accept::json());
-                hs.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
-                hs.set(header::Authorization(self.token.clone()))
-            }
-            let req: future::FromErr<_, Error> = req.into_future().from_err();
-            let timer = Timer::default();
-            let req = timer.timeout(req, self.config.timeout.clone());
-            req.and_then(|res| {
-                Helper::status_ok(&res);
-                let body = res.body().concat2().from_err();
-                body
-            })
-        };
+        let req = self.create_request(&route)?;
+        let work = req.and_then(|res| {
+            assert_status(&res, StatusCode::Ok);
+            let body = concat_body(res).from_err();
+            body
+        });
         let res = self.server.run(work)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
@@ -129,12 +134,12 @@ where
     (start_time, end_time)
 }
 
-struct Helper {}
+fn assert_status(res: &Response, status: StatusCode) {
+    assert_eq!(res.status(), status);
+}
 
-impl Helper {
-    fn status_ok(res: &Response) {
-        assert_eq!(res.status(), StatusCode::Ok);
-    }
+fn concat_body(res: Response) -> stream::Concat2<hyper::Body> {
+    res.body().concat2()
 }
 
 #[cfg(test)]
