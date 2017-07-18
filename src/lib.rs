@@ -36,9 +36,11 @@ use tokio_timer::{Timeout, Timer};
 pub mod error;
 pub mod esios;
 
+pub use error::Error;
+
 mod impls;
 
-use error::{Error, Result};
+use error::Result;
 
 #[derive(Clone, Debug)]
 pub struct Token(pub String);
