@@ -18,6 +18,7 @@ pub struct Indicators {
 #[derive(Debug, Deserialize)]
 pub struct IndicatorInnerValue {
     pub value: f32,
+    pub datetime: String,
 }
 
 // Some fields ignored.
