@@ -22,17 +22,15 @@ use siostail::day_range_rfc3339;
 use siostail::error::{Error, Result};
 use siostail::esios;
 use siostail::{Endpoint, Token};
+use std::env;
 use std::error::Error as StdError;
-
-// TODO: Obtain from environment, to ease use with Travis.
-// NB: Generated in browser; subject to expiration.
-const TOKEN: &str = "8f38cf52b8b1e583a80f6af92ec58d07f343d32e51ab96f9ae9d674692c9e51d";
 
 struct Helper;
 
 impl Helper {
     fn endpoint() -> Result<Endpoint> {
-        let token = Token(TOKEN.to_string());
+        let token = env::var("ESIOS_TOKEN").map_err(|_| Error::NoAuth)?;
+        let token = Token(token);
         let timeout = 5;
         Endpoint::new(token, timeout)
     }
