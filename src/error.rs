@@ -32,6 +32,7 @@ pub enum Error {
     SerdeJson(serde_json::Error),
     TokioTimer(tokio_timer::TimerError),
 
+    NoAuth,
     Timeout,
     Unknown,
 }
@@ -45,6 +46,7 @@ impl StdError for Error {
             Error::SerdeJson(ref error) => error.description(),
             Error::TokioTimer(ref error) => error.description(),
 
+            Error::NoAuth => "Authorization token missing",
             Error::Timeout => "Operation timed out",
             Error::Unknown => "Unknown error",
         }

@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 chrono = "0.4"
-crest = { git = "file:///home/pablo/code/public/crest", branch = "next" }
+crest = { git = "https://github.com/pablocouto/crest", branch = "next" }
 futures = "0.1"
 hyper = "0.11"
 serde = "1.0"
