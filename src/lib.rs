@@ -112,6 +112,7 @@ impl Endpoint {
         Ok(data)
     }
 
+    // TODO: Does it work well for CET/CEST changes?
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
