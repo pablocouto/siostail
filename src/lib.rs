@@ -44,13 +44,12 @@ use error::{Error, Result};
 pub struct Token(pub String);
 
 struct EndpointConfig {
+    token: Token,
     timeout: Duration,
 }
 
-// TODO: Use Cow?
 pub struct Endpoint {
     server: crest::Endpoint,
-    token: Token,
     config: EndpointConfig,
 }
 
@@ -59,19 +58,18 @@ pub struct Endpoint {
 impl Endpoint {
     pub fn new(token: Token, timeout: u64) -> Result<Self> {
         let server = crest::Endpoint::new("https://api.esios.ree.es/")?;
-        let config = EndpointConfig { timeout: Duration::from_secs(timeout) };
-        Ok(Endpoint {
-            server,
-            token,
-            config,
-        })
+        let config = EndpointConfig {
+            token: token.clone(),
+            timeout: Duration::from_secs(timeout),
+        };
+        Ok(Endpoint { server, config })
     }
 
     fn set_basic_headers(&self, headers: &mut Headers) {
         headers.set(header::UserAgent::new("siostail/dev"));
         headers.set(header::Accept::json());
         headers.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
-        headers.set(header::Authorization(self.token.clone()))
+        headers.set(header::Authorization(self.config.token.clone()))
     }
 
     fn set_timeout<T>(&self, req: T) -> Timeout<future::FromErr<T, Error>>
@@ -96,15 +94,19 @@ impl Endpoint {
         Ok(req)
     }
 
+    fn prepare_response(
+        res: hyper::Response,
+    ) -> future::FromErr<stream::Concat2<hyper::Body>, Error> {
+        assert_status(&res, StatusCode::Ok);
+        let body = concat_body(res).from_err();
+        body
+    }
+
     // TODO: Add stream timeout for the body.
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
         let req = self.create_request(route)?;
-        let work = req.and_then(|res| {
-            assert_status(&res, StatusCode::Ok);
-            let body = concat_body(res).from_err();
-            body
-        });
+        let work = req.and_then(Self::prepare_response);
         let res = self.server.run(work)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
@@ -114,11 +116,7 @@ impl Endpoint {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
         let req = self.create_request(&route)?;
-        let work = req.and_then(|res| {
-            assert_status(&res, StatusCode::Ok);
-            let body = concat_body(res).from_err();
-            body
-        });
+        let work = req.and_then(Self::prepare_response);
         let res = self.server.run(work)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
