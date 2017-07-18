@@ -15,21 +15,21 @@ pub struct Indicators {
 
 // Some fields ignored.
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct IndicatorInnerValue {
     pub value: f32,
 }
 
 // Some fields ignored.
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct IndicatorInner {
     pub values_updated_at: String,
     pub values: Vec<IndicatorInnerValue>,
 }
 
 #[allow(dead_code)]
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Indicator {
     pub indicator: IndicatorInner,
 }
