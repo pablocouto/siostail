@@ -24,7 +24,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio_timer;
 
-use chrono::{Date, TimeZone};
+use chrono::{Date, FixedOffset, TimeZone};
 use futures::{Future, Stream};
 use futures::{future, stream};
 use hyper::header::qitem;
@@ -125,13 +125,14 @@ impl Endpoint {
     }
 }
 
-pub fn day_range_rfc3339<T>(date: Date<T>) -> (String, String)
+pub fn day_range_rfc3339<T>(date: &Date<T>) -> (String, String)
 where
     T: TimeZone,
     T::Offset: std::fmt::Display,
 {
-    let start_time = date.and_hms(0, 0, 0).to_rfc3339();
-    let end_time = date.and_hms(23, 0, 0).to_rfc3339();
+    let cest = FixedOffset::east(2 * 3600);
+    let start_time = date.and_hms(0, 0, 0).with_timezone(&cest).to_rfc3339();
+    let end_time = date.and_hms(23, 0, 0).with_timezone(&cest).to_rfc3339();
     (start_time, end_time)
 }
 
@@ -148,11 +149,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn day_range_rfc3339() {
-        let fixed_offset = chrono::offset::FixedOffset::east(3600 * 2);
-        let date_local = fixed_offset.ymd(2014, 04, 01);
-        let (start_time, end_time) = super::day_range_rfc3339(date_local);
+    fn day_range_rfc3339_cest() {
+        let cest = FixedOffset::east(3600 * 2);
+        let date = cest.ymd(2014, 04, 01);
+        let (start_time, end_time) = super::day_range_rfc3339(&date);
         assert_eq!(&start_time, "2014-04-01T00:00:00+02:00");
         assert_eq!(&end_time, "2014-04-01T23:00:00+02:00");
+    }
+
+    #[test]
+    fn day_range_rfc3339_clt() {
+        // The timezone was picked arbitrarily to be any but CET/CEST,
+        // in order to test conformance with the API quirks¹ for such
+        // cases.
+        //
+        // ¹An apparent lack of timezone conversion functionality.
+        let clt = FixedOffset::west(3600 * 4);
+        let date = clt.ymd(2014, 04, 01);
+        let (start_time, end_time) = super::day_range_rfc3339(&date);
+        assert_eq!(&start_time, "2014-04-01T06:00:00+02:00");
+        assert_eq!(&end_time, "2014-04-02T05:00:00+02:00");
     }
 }
