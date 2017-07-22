@@ -21,7 +21,7 @@ use chrono::offset::FixedOffset;
 use siostail::day_range_rfc3339;
 use siostail::error::{Error, Result};
 use siostail::esios;
-use siostail::{Endpoint, Token};
+use siostail::Endpoint;
 use std::env;
 use std::error::Error as StdError;
 
@@ -29,8 +29,7 @@ struct Helper;
 
 impl Helper {
     fn endpoint() -> Result<Endpoint> {
-        let token = env::var("ESIOS_TOKEN").map_err(|_| Error::NoAuth)?;
-        let token = Token(token);
+        let token = &env::var("ESIOS_TOKEN").map_err(|_| Error::NoAuth)?;
         let timeout = 5;
         Endpoint::new(token, timeout)
     }

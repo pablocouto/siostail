@@ -29,7 +29,7 @@ use futures::{Future, Stream};
 use futures::{future, stream};
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
-use hyper::{Headers, Response, StatusCode};
+use hyper::{Response, StatusCode};
 use std::time::Duration;
 use tokio_timer::{Timeout, Timer};
 
@@ -43,35 +43,28 @@ mod impls;
 use error::Result;
 
 #[derive(Clone, Debug)]
-pub struct Token(pub String);
+struct Token(String);
 
-struct EndpointConfig {
+struct Config {
     token: Token,
     timeout: Duration,
 }
 
 pub struct Endpoint {
     server: crest::Endpoint,
-    config: EndpointConfig,
+    config: Config,
 }
 
 // TODO: Use caching where appropriate.
 // TODO: Handle 401 responses.
 impl Endpoint {
-    pub fn new(token: Token, timeout: u64) -> Result<Self> {
+    pub fn new(token: &str, timeout: u64) -> Result<Self> {
         let server = crest::Endpoint::new("https://api.esios.ree.es/")?;
-        let config = EndpointConfig {
-            token: token.clone(),
-            timeout: Duration::from_secs(timeout),
-        };
-        Ok(Endpoint { server, config })
-    }
-
-    fn set_basic_headers(&self, headers: &mut Headers) {
-        headers.set(header::UserAgent::new("siostail/dev"));
-        headers.set(header::Accept::json());
-        headers.set(header::AcceptEncoding(vec![qitem(Encoding::Identity)]));
-        headers.set(header::Authorization(self.config.token.clone()))
+        let token = Token(token.to_string());
+        let timeout = Duration::from_secs(timeout);
+        let config = Config { token, timeout };
+        let endpoint = Endpoint { server, config };
+        Ok(endpoint)
     }
 
     fn set_timeout<T>(&self, req: T) -> Timeout<future::FromErr<T, Error>>
@@ -85,13 +78,16 @@ impl Endpoint {
         req
     }
 
-    // TODO: Use builder pattern for the request?
     fn create_request(
         &self,
         route: &str,
     ) -> Result<Timeout<future::FromErr<hyper::client::FutureResponse, Error>>> {
-        let mut req = self.server.get(route)?;
-        self.set_basic_headers(req.headers_mut());
+        let req = self.server
+            .get(route)?
+            .header(header::UserAgent::new("siostail/dev"))
+            .header(header::Accept::json())
+            .header(header::AcceptEncoding(vec![qitem(Encoding::Identity)]))
+            .header(header::Authorization(self.config.token.clone()));
         let req = self.set_timeout(req.into_future());
         Ok(req)
     }
