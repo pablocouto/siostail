@@ -61,7 +61,7 @@ impl Endpoint {
     pub fn new(token: &str, timeout: u64) -> Result<Self> {
         let server = crest::Endpoint::new("https://api.esios.ree.es/")?;
         let token = Token(token.to_string());
-        let timeout = Duration::from_secs(timeout);
+        let timeout = Duration::from_millis(timeout);
         let config = Config { token, timeout };
         let endpoint = Endpoint { server, config };
         Ok(endpoint)
