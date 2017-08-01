@@ -25,8 +25,8 @@ extern crate serde_json;
 extern crate tokio_timer;
 
 use chrono::{Date, FixedOffset, TimeZone};
-use futures::{Future, Stream};
-use futures::{future, stream};
+use futures::future;
+use futures::{BoxFuture, Future, Stream};
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
 use hyper::{Response, StatusCode};
@@ -92,20 +92,17 @@ impl Endpoint {
         Ok(req)
     }
 
-    fn prepare_response(
-        res: hyper::Response,
-    ) -> future::FromErr<stream::Concat2<hyper::Body>, Error> {
+    fn prepare_response(res: hyper::Response) -> BoxFuture<hyper::Chunk, Error> {
         assert_status(&res, StatusCode::Ok);
-        let body = concat_body(res).from_err();
-        body
+        let body = res.body().concat2().from_err();
+        body.boxed()
     }
 
     // TODO: Add stream timeout for the body.
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
-        let req = self.create_request(route)?;
-        let work = req.and_then(Self::prepare_response);
-        let res = self.server.run(work)?;
+        let req = self.create_request(route)?.and_then(Self::prepare_response);
+        let res = self.server.run(req)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
     }
@@ -113,9 +110,10 @@ impl Endpoint {
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
-        let req = self.create_request(&route)?;
-        let work = req.and_then(Self::prepare_response);
-        let res = self.server.run(work)?;
+        let req = self.create_request(&route)?.and_then(
+            Self::prepare_response,
+        );
+        let res = self.server.run(req)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
     }
@@ -134,10 +132,6 @@ where
 
 fn assert_status(res: &Response, status: StatusCode) {
     assert_eq!(res.status(), status);
-}
-
-fn concat_body(res: Response) -> stream::Concat2<hyper::Body> {
-    res.body().concat2()
 }
 
 #[cfg(test)]
