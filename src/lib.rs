@@ -25,13 +25,13 @@ extern crate serde_json;
 extern crate tokio_timer;
 
 use chrono::{Date, FixedOffset, TimeZone};
-use futures::future;
-use futures::{BoxFuture, Future, Stream};
+use futures::{Future, Stream};
+use futures::{future, stream};
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
 use hyper::{Response, StatusCode};
 use std::time::Duration;
-use tokio_timer::{Timeout, Timer};
+use tokio_timer::{Timeout, TimeoutStream, Timer};
 
 pub mod error;
 pub mod esios;
@@ -67,41 +67,26 @@ impl Endpoint {
         Ok(endpoint)
     }
 
-    fn set_timeout<T>(&self, req: T) -> Timeout<future::FromErr<T, Error>>
-    where
-        T: Future,
-        Error: From<T::Error>,
-    {
-        let timer = Timer::default();
-        let req: future::FromErr<_, Error> = req.from_err();
-        let req = timer.timeout(req, self.config.timeout.clone());
-        req
-    }
-
-    fn create_request(
-        &self,
-        route: &str,
-    ) -> Result<Timeout<future::FromErr<hyper::client::FutureResponse, Error>>> {
+    fn get(&self, route: &str) -> Result<Box<Future<Item = hyper::Chunk, Error = Error>>> {
+        let timeout = self.config.timeout.clone();
         let req = self.server
             .get(route)?
             .header(header::UserAgent::new("siostail/dev"))
             .header(header::Accept::json())
             .header(header::AcceptEncoding(vec![qitem(Encoding::Identity)]))
             .header(header::Authorization(self.config.token.clone()));
-        let req = self.set_timeout(req.into_future());
-        Ok(req)
+        let req = timeout_future(req.into_future(), timeout);
+        let work = Box::new(req.and_then(move |res| {
+            assert_status(&res, StatusCode::Ok);
+            let body = timeout_stream(res.body(), timeout);
+            body.concat2()
+        }));
+        Ok(work)
     }
 
-    fn prepare_response(res: hyper::Response) -> BoxFuture<hyper::Chunk, Error> {
-        assert_status(&res, StatusCode::Ok);
-        let body = res.body().concat2().from_err();
-        body.boxed()
-    }
-
-    // TODO: Add stream timeout for the body.
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
-        let req = self.create_request(route)?.and_then(Self::prepare_response);
+        let req = self.get(route)?;
         let res = self.server.run(req)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
@@ -110,9 +95,7 @@ impl Endpoint {
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
-        let req = self.create_request(&route)?.and_then(
-            Self::prepare_response,
-        );
+        let req = self.get(&route)?;
         let res = self.server.run(req)?;
         let data = serde_json::from_slice(&*res)?;
         Ok(data)
@@ -132,6 +115,26 @@ where
 
 fn assert_status(res: &Response, status: StatusCode) {
     assert_eq!(res.status(), status);
+}
+
+fn timeout_future<T>(future: T, timeout: Duration) -> Timeout<future::FromErr<T, Error>>
+where
+    T: Future,
+    Error: From<T::Error>,
+{
+    let timer = Timer::default();
+    let future = timer.timeout(future.from_err(), timeout);
+    future
+}
+
+fn timeout_stream<T>(stream: T, timeout: Duration) -> TimeoutStream<stream::FromErr<T, Error>>
+where
+    T: Stream,
+    Error: From<T::Error>,
+{
+    let timer = Timer::default();
+    let stream = timer.timeout_stream(stream.from_err(), timeout);
+    stream
 }
 
 #[cfg(test)]
