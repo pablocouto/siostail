@@ -30,7 +30,7 @@ struct Helper;
 impl Helper {
     fn endpoint() -> Result<Endpoint> {
         let token = &env::var("ESIOS_TOKEN").map_err(|_| Error::NoAuth)?;
-        let timeout = 5;
+        let timeout = 5000;
         Endpoint::new(token, timeout)
     }
 
