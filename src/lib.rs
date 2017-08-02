@@ -25,13 +25,13 @@ extern crate serde_json;
 extern crate tokio_timer;
 
 use chrono::{Date, FixedOffset, TimeZone};
+use futures::stream;
 use futures::{Future, Stream};
-use futures::{future, stream};
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
 use hyper::{Response, StatusCode};
 use std::time::Duration;
-use tokio_timer::{Timeout, TimeoutStream, Timer};
+use tokio_timer::{TimeoutStream, Timer};
 
 pub mod error;
 pub mod esios;
@@ -74,14 +74,16 @@ impl Endpoint {
             .header(header::UserAgent::new("siostail/dev"))
             .header(header::Accept::json())
             .header(header::AcceptEncoding(vec![qitem(Encoding::Identity)]))
-            .header(header::Authorization(self.config.token.clone()));
-        let req = timeout_future(req.into_future(), timeout);
-        let work = Box::new(req.and_then(move |res| {
+            .header(header::Authorization(self.config.token.clone()))
+            .timeout(timeout)
+            .into_future()
+            .from_err();
+        let work = req.and_then(move |res| {
             assert_status(&res, StatusCode::Ok);
             let body = timeout_stream(res.body(), timeout);
             body.concat2()
-        }));
-        Ok(work)
+        });
+        Ok(Box::new(work))
     }
 
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
@@ -115,16 +117,6 @@ where
 
 fn assert_status(res: &Response, status: StatusCode) {
     assert_eq!(res.status(), status);
-}
-
-fn timeout_future<T>(future: T, timeout: Duration) -> Timeout<future::FromErr<T, Error>>
-where
-    T: Future,
-    Error: From<T::Error>,
-{
-    let timer = Timer::default();
-    let future = timer.timeout(future.from_err(), timeout);
-    future
 }
 
 fn timeout_stream<T>(stream: T, timeout: Duration) -> TimeoutStream<stream::FromErr<T, Error>>
