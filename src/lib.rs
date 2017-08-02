@@ -27,9 +27,9 @@ extern crate tokio_timer;
 use chrono::{Date, FixedOffset, TimeZone};
 use futures::stream;
 use futures::{Future, Stream};
+use hyper::StatusCode;
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
-use hyper::{Response, StatusCode};
 use std::time::Duration;
 use tokio_timer::{TimeoutStream, Timer};
 
@@ -68,21 +68,21 @@ impl Endpoint {
 
     fn get(&self, route: &str) -> Result<Box<Future<Item = hyper::Chunk, Error = Error>>> {
         let timeout = self.config.timeout.clone();
-        let req = self.server
+        let response = self.server
             .get(route)?
             .header(header::UserAgent::new("siostail/dev"))
             .header(header::Accept::json())
             .header(header::AcceptEncoding(vec![qitem(Encoding::Identity)]))
             .header(header::Authorization(self.config.token.clone()))
             .timeout(timeout)
-            .into_future()
-            .from_err();
-        let work = req.and_then(move |res| {
-            assert_status(&res, StatusCode::Ok);
-            let body = timeout_stream(res.body(), timeout);
-            body.concat2()
-        });
-        Ok(Box::new(work))
+            .into_future();
+        let body = response
+            .assert_status(StatusCode::Ok)
+            .from_err().and_then(move |res| {
+                let body = timeout_stream(res.body(), timeout);
+                body.concat2()
+            });
+        Ok(Box::new(body))
     }
 
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
@@ -112,10 +112,6 @@ where
     let start_time = date.and_hms(0, 0, 0).with_timezone(&cest).to_rfc3339();
     let end_time = date.and_hms(23, 0, 0).with_timezone(&cest).to_rfc3339();
     (start_time, end_time)
-}
-
-fn assert_status(res: &Response, status: StatusCode) {
-    assert_eq!(res.status(), status);
 }
 
 fn timeout_stream<T>(stream: T, timeout: Duration) -> TimeoutStream<stream::FromErr<T, Error>>
