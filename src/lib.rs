@@ -25,13 +25,11 @@ extern crate serde_json;
 extern crate tokio_timer;
 
 use chrono::{Date, FixedOffset, TimeZone};
-use futures::stream;
-use futures::{Future, Stream};
+use crest::ResponseBody;
 use hyper::StatusCode;
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
 use std::time::Duration;
-use tokio_timer::{TimeoutStream, Timer};
 
 pub mod error;
 pub mod esios;
@@ -66,8 +64,8 @@ impl Endpoint {
         Ok(endpoint)
     }
 
-    fn get(&self, route: &str) -> Result<Box<Future<Item = hyper::Chunk, Error = Error>>> {
-        let timeout = self.config.timeout.clone();
+    fn get(&self, route: &str) -> Result<ResponseBody> {
+        let timeout = self.config.timeout;
         let response = self.server
             .get(route)?
             .header(header::UserAgent::new("siostail/dev"))
@@ -76,29 +74,24 @@ impl Endpoint {
             .header(header::Authorization(self.config.token.clone()))
             .timeout(timeout)
             .into_future();
-        let body = response
-            .assert_status(StatusCode::Ok)
-            .from_err().and_then(move |res| {
-                let body = timeout_stream(res.body(), timeout);
-                body.concat2()
-            });
-        Ok(Box::new(body))
+        let body = response.assert_status(StatusCode::Ok).body();
+        Ok(body)
     }
 
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
-        let req = self.get(route)?;
-        let res = self.server.run(req)?;
-        let data = serde_json::from_slice(&*res)?;
+        let get = self.get(route)?;
+        let body = self.server.run(get)?;
+        let data = serde_json::from_slice(&*body)?;
         Ok(data)
     }
 
     pub fn indicator(&mut self, start_date: &str, end_date: &str) -> Result<esios::Indicator> {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
-        let req = self.get(&route)?;
-        let res = self.server.run(req)?;
-        let data = serde_json::from_slice(&*res)?;
+        let get = self.get(&route)?;
+        let body = self.server.run(get)?;
+        let data = serde_json::from_slice(&*body)?;
         Ok(data)
     }
 }
@@ -112,16 +105,6 @@ where
     let start_time = date.and_hms(0, 0, 0).with_timezone(&cest).to_rfc3339();
     let end_time = date.and_hms(23, 0, 0).with_timezone(&cest).to_rfc3339();
     (start_time, end_time)
-}
-
-fn timeout_stream<T>(stream: T, timeout: Duration) -> TimeoutStream<stream::FromErr<T, Error>>
-where
-    T: Stream,
-    Error: From<T::Error>,
-{
-    let timer = Timer::default();
-    let stream = timer.timeout_stream(stream.from_err(), timeout);
-    stream
 }
 
 #[cfg(test)]
