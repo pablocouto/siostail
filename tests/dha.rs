@@ -19,7 +19,6 @@ extern crate siostail;
 use chrono::TimeZone;
 use chrono::offset::FixedOffset;
 use siostail::Endpoint;
-use siostail::day_range_rfc3339;
 use siostail::error::{Error, Result};
 use siostail::esios;
 use std::env;
@@ -64,8 +63,7 @@ fn indicator() {
     // Using a non CET/CEST timezone here also tests this library’s
     // capability to deal with the API limitations in this regard.
     let clt = FixedOffset::west(3600 * 4);
-    let (start_time, end_time) = day_range_rfc3339(&clt.ymd(2014, 04, 01));
-    let res = esios.indicator(&start_time, &end_time);
+    let res = esios.indicator_at(&clt.ymd(2014, 04, 01));
     let res = res.map(|data| {
         let esios::IndicatorInner { values, .. } = data.indicator;
         // Externally known value:

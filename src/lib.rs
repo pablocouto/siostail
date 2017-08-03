@@ -29,6 +29,7 @@ use crest::ResponseBody;
 use hyper::StatusCode;
 use hyper::header::qitem;
 use hyper::header::{self, Encoding};
+use std::fmt;
 use std::time::Duration;
 
 pub mod error;
@@ -94,9 +95,19 @@ impl Endpoint {
         let data = serde_json::from_slice(&*body)?;
         Ok(data)
     }
+
+    pub fn indicator_at<T>(&mut self, date: &Date<T>) -> Result<esios::Indicator>
+    where
+        T: TimeZone,
+        T::Offset: fmt::Display,
+    {
+        let (range_start, range_end) = day_range_rfc3339(date);
+        let data = self.indicator(&range_start, &range_end)?;
+        Ok(data)
+    }
 }
 
-pub fn day_range_rfc3339<T>(date: &Date<T>) -> (String, String)
+fn day_range_rfc3339<T>(date: &Date<T>) -> (String, String)
 where
     T: TimeZone,
     T::Offset: std::fmt::Display,
