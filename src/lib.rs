@@ -58,7 +58,11 @@ pub struct Endpoint {
 // TODO: Handle 401 responses.
 impl Endpoint {
     pub fn new(token: &str, timeout: Duration) -> Result<Self> {
-        let server = crest::Endpoint::new("https://api.esios.ree.es/")?;
+        // ESIOS’s server doesn’t appear to honor `keep-alive`.
+        // Turning off the flag (as far as I could gather) prevents
+        // Hyper from polling on a (possibly) broken pipe.
+        let keep_alive = false;
+        let server = crest::Endpoint::new("https://api.esios.ree.es/", keep_alive)?;
         let token = Token(token.to_string());
         let config = Config { token, timeout };
         let endpoint = Endpoint { server, config };
