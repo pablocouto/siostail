@@ -13,81 +13,20 @@
 // License version 3 along with this program.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-use chrono;
-use crest;
-use hyper;
-use serde_json;
-use std::convert::From;
-use std::error::Error as StdError;
-use std::fmt;
-use tokio_timer;
-
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub enum Error {
-    Crest(crest::error::Error),
-    Chrono(chrono::ParseError),
-    Hyper(hyper::Error),
-    SerdeJson(serde_json::Error),
-    TokioTimer(tokio_timer::TimerError),
-
-    NoAuth,
-    Timeout,
-    Unknown,
-}
-
-impl StdError for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Crest(ref error) => error.description(),
-            Error::Chrono(ref error) => error.description(),
-            Error::Hyper(ref error) => error.description(),
-            Error::SerdeJson(ref error) => error.description(),
-            Error::TokioTimer(ref error) => error.description(),
-
-            Error::NoAuth => "Authorization token missing",
-            Error::Timeout => "Operation timed out",
-            Error::Unknown => "Unknown error",
-        }
+error_chain!{
+    types {
+        Error, ErrorKind, ResultExt, Result;
     }
-}
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.description())
+    links {}
+
+    foreign_links {
+        Crest(::crest::Error);
     }
-}
 
-impl From<crest::error::Error> for Error {
-    fn from(error: crest::error::Error) -> Self {
-        Error::Crest(error)
-    }
-}
-
-impl From<chrono::ParseError> for Error {
-    fn from(error: chrono::ParseError) -> Self {
-        Error::Chrono(error)
-    }
-}
-
-impl From<hyper::Error> for Error {
-    fn from(error: hyper::Error) -> Self {
-        Error::Hyper(error)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(error: serde_json::Error) -> Self {
-        Error::SerdeJson(error)
-    }
-}
-
-impl<T> From<tokio_timer::TimeoutError<T>> for Error {
-    fn from(error: tokio_timer::TimeoutError<T>) -> Self {
-        match error {
-            tokio_timer::TimeoutError::Timer(_, error) => Error::TokioTimer(error),
-            tokio_timer::TimeoutError::TimedOut(_) => Error::Timeout,
+    errors {
+        NoAuth {
+            description("Missing authorization token")
         }
     }
 }

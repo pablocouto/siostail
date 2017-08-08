@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 chrono = "0.4"
 crest = { git = "https://github.com/pablocouto/crest", branch = "next" }
+error-chain = "0.10"
 futures = "0.1"
 hyper = "0.11"
 serde = "1.0"

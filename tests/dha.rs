@@ -18,34 +18,17 @@ extern crate siostail;
 
 use chrono::TimeZone;
 use chrono::offset::FixedOffset;
-use siostail::Endpoint;
-use siostail::error::{Error, Result};
-use siostail::esios;
+use siostail::*;
 use std::env;
-use std::error::Error as StdError;
 use std::time::Duration;
 
 struct Helper;
 
 impl Helper {
     fn endpoint() -> Result<Endpoint> {
-        let token = &env::var("ESIOS_TOKEN").map_err(|_| Error::NoAuth)?;
+        let token = &env::var("ESIOS_TOKEN").chain_err(|| ErrorKind::NoAuth)?;
         let timeout = Duration::from_millis(5000);
         Endpoint::new(token, timeout)
-    }
-
-    fn handle_err(error: Option<Error>) {
-        match error {
-            None => return (),
-            // Server timeouts are OK.
-            Some(Error::Timeout) => {
-                println!("{}", Error::Timeout.description());
-                return ();
-            }
-            Some(ref err) => {
-                panic!("{:?}", err);
-            }
-        }
     }
 }
 
@@ -54,7 +37,7 @@ impl Helper {
 fn indicators() {
     let mut esios = Helper::endpoint().unwrap();
     let res = esios.indicators();
-    Helper::handle_err(res.err());
+    assert!(res.is_ok());
 }
 
 #[test]
@@ -69,5 +52,5 @@ fn indicator() {
         // Externally known value:
         assert_eq!(values[0].value, 32.63);
     });
-    Helper::handle_err(res.err());
+    assert!(res.is_ok());
 }

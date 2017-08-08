@@ -14,6 +14,8 @@
 // <http://www.gnu.org/licenses/>.
 
 #[macro_use]
+extern crate error_chain;
+#[macro_use]
 extern crate serde_derive;
 
 extern crate chrono;
@@ -32,14 +34,12 @@ use hyper::header::{self, Encoding};
 use std::fmt;
 use std::time::Duration;
 
-pub mod error;
 pub mod esios;
 
-pub use error::Error;
-
+mod error;
 mod impls;
 
-use error::Result;
+pub use error::*;
 
 #[derive(Clone, Debug)]
 struct Token(String);
@@ -87,7 +87,9 @@ impl Endpoint {
         let route = "indicators";
         let get = self.get(route)?;
         let body = self.server.run(get)?;
-        let data = serde_json::from_slice(&*body)?;
+        let data = serde_json::from_slice(&*body).chain_err(
+            || "Failed to deserialize `indicators` data",
+        )?;
         Ok(data)
     }
 
@@ -96,7 +98,9 @@ impl Endpoint {
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
         let get = self.get(&route)?;
         let body = self.server.run(get)?;
-        let data = serde_json::from_slice(&*body)?;
+        let data = serde_json::from_slice(&*body).chain_err(
+            || "Failed to deserialize `indicator` data",
+        )?;
         Ok(data)
     }
 
