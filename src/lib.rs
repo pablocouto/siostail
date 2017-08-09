@@ -86,7 +86,7 @@ impl Endpoint {
     pub fn indicators(&mut self) -> Result<esios::Indicators> {
         let route = "indicators";
         let get = self.get(route)?;
-        let body = self.server.run(get)?;
+        let body = self.server.run(get).map_err(handle_crest_err)?;
         let data = serde_json::from_slice(&*body).chain_err(
             || "Failed to deserialize `indicators` data",
         )?;
@@ -97,7 +97,7 @@ impl Endpoint {
         let mut route = "indicators/1014".to_string();
         route += &format!("?start_date={}&end_date={}", start_date, end_date);
         let get = self.get(&route)?;
-        let body = self.server.run(get)?;
+        let body = self.server.run(get).map_err(handle_crest_err)?;
         let data = serde_json::from_slice(&*body).chain_err(
             || "Failed to deserialize `indicator` data",
         )?;
@@ -124,6 +124,13 @@ where
     let start_time = date.and_hms(0, 0, 0).with_timezone(&cest).to_rfc3339();
     let end_time = date.and_hms(23, 0, 0).with_timezone(&cest).to_rfc3339();
     (start_time, end_time)
+}
+
+fn handle_crest_err(error: crest::Error) -> Error {
+    match *error.kind() {
+        ::crest::ErrorKind::Timeout => ErrorKind::Timeout.into(),
+        _ => error.into(),
+    }
 }
 
 #[cfg(test)]

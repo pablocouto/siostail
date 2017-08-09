@@ -18,15 +18,18 @@ error_chain!{
         Error, ErrorKind, ResultExt, Result;
     }
 
-    links {}
-
-    foreign_links {
-        Crest(::crest::Error);
+    links {
+        Crest(::crest::Error, ::crest::ErrorKind);
     }
+
+    foreign_links {}
 
     errors {
         NoAuth {
             description("Missing authorization token")
+        }
+        Timeout {
+            description("Operation timed out")
         }
     }
 }
