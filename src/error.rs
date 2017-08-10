@@ -13,13 +13,16 @@
 // License version 3 along with this program.  If not, see
 // <http://www.gnu.org/licenses/>.
 
+use crest;
+use hyper;
+
 error_chain!{
     types {
         Error, ErrorKind, ResultExt, Result;
     }
 
     links {
-        Crest(::crest::Error, ::crest::ErrorKind);
+        Crest(crest::Error, crest::ErrorKind);
     }
 
     foreign_links {}
@@ -30,6 +33,10 @@ error_chain!{
         }
         Timeout {
             description("Operation timed out")
+        }
+        UnexpectedStatus(recv: hyper::StatusCode, req: hyper::StatusCode) {
+            description("Unexpected status received")
+            display("Expected status ‘{}’; received ‘{}’", req, recv)
         }
     }
 }

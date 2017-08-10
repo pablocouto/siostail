@@ -128,7 +128,10 @@ where
 
 fn handle_crest_err(error: crest::Error) -> Error {
     match *error.kind() {
-        ::crest::ErrorKind::Timeout => ErrorKind::Timeout.into(),
+        crest::ErrorKind::Timeout => ErrorKind::Timeout.into(),
+        crest::ErrorKind::UnexpectedStatus(recv, req) => {
+            ErrorKind::UnexpectedStatus(recv, req).into()
+        }
         _ => error.into(),
     }
 }
